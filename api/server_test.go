@@ -47,23 +47,26 @@ func TestNewToken(t *testing.T) {
 	req.URL.RawQuery = q.Encode()
 
 	testserver.Router.ServeHTTP(w, req)
+	require.Equal(t, 200, w.Code)
 
 	log.Println("err", err)
 	log.Println("ts.Url", ts.URL)
 	log.Println("req.body", req.Body)
 
-	require.Equal(t, 200, w.Code)
-
-	w2 := httptest.NewRecorder()
-	req2, err := http.NewRequest("GET", fmt.Sprintf(ts.URL+"/rest/token/"), nil)
-	require.NoError(t, err)
-	q2 := req.URL.Query()
-	q.Add("id", "4b1fb443-c758-4552-900d-8f85def681f")
-	req.URL.RawQuery = q2.Encode()
-
-	testserver.Router.ServeHTTP(w2, req2)
+	w2, r2 := testInvalidId(t, ts)
+	testserver.Router.ServeHTTP(w2, r2)
 	require.Equal(t, 400, w2.Code)
+}
 
+func testInvalidId(t *testing.T, ts *httptest.Server) (w *httptest.ResponseRecorder, r *http.Request) {
+	w = httptest.NewRecorder()
+	r, err := http.NewRequest("GET", fmt.Sprintf(ts.URL+"/rest/token/"), nil)
+	require.NoError(t, err)
+	q := r.URL.Query()
+	q.Add("id", "4b1fb443-c758-4552-900d-8f85def681f")
+	r.URL.RawQuery = q.Encode()
+
+	return
 }
 
 func TestNewRefreshToken(t *testing.T) {
@@ -84,8 +87,6 @@ func TestNewRefreshToken(t *testing.T) {
 	}()
 
 	testserver := NewServer(client)
-	// parent := context.Background()
-	// ctx, cancel := context.WithTimeout(parent, time.Second*15)
 
 	ts := httptest.NewServer(testserver.Router)
 	defer ts.Close()
@@ -104,8 +105,6 @@ func TestNewRefreshToken(t *testing.T) {
 	log.Println(string(jsonbody))
 	require.NoError(t, err)
 
-	// queryParam := "?id=4b1fb443-c758-4552-900d-8f85def681fe"
-	// req, err := http.NewRequest("GET", fmt.Sprintf(ts.URL+"/rest/token/"+queryParam), nil)
 	req, err := http.NewRequest("POST", ts.URL+"/rest/token/refresh", bytes.NewBuffer(jsonbody))
 	require.NoError(t, err)
 
@@ -114,15 +113,6 @@ func TestNewRefreshToken(t *testing.T) {
 	log.Println("err", err)
 	log.Println("ts.Url", ts.URL)
 	log.Println("req.body", req.Body)
-
-	// body := req.Body
-	// err = json.Unmarshal([]byte(req.Body), &body)
-	// log.Println(err)
-	// require.NoError(t, err)
-	// require.NoError(t, err)
-
-	// log.Println("req.body", resp.Body)
-	// log.Println("req.body", w.Result().Request.Body)
 
 	require.Equal(t, 200, w.Code)
 }
